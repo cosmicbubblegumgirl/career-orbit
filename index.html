@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#17142f">
+  <meta name="description" content="Simone's practical career planner for daily focus, applications, networking and steady progress.">
+  <title>Career Orbit — Simoné Govender</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='16' fill='%2317142f'/><circle cx='32' cy='32' r='8' fill='%23ff7a8a'/><ellipse cx='32' cy='32' rx='24' ry='11' fill='none' stroke='%237be0bd' stroke-width='4' transform='rotate(-25 32 32)'/></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to planner</a>
+
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="Primary navigation">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true"><i></i></span>
+        <div><strong>Career Orbit</strong><small>Simoné's mission desk</small></div>
+      </div>
+
+      <nav class="nav-list">
+        <button class="nav-item active" data-view="today"><span>◎</span>Today</button>
+        <button class="nav-item" data-view="plan"><span>⌁</span>13-week plan</button>
+        <button class="nav-item" data-view="goals"><span>◇</span>Goals</button>
+        <button class="nav-item" data-view="applications"><span>▣</span>Applications</button>
+        <button class="nav-item" data-view="network"><span>◌</span>Network</button>
+        <button class="nav-item" data-view="calendar"><span>▦</span>Calendar</button>
+      </nav>
+
+      <div class="sidebar-bottom">
+        <div class="tiny-card">
+          <span class="eyebrow">Minimum viable week</span>
+          <strong>3 applications + 2 connections</strong>
+          <small>Progress still counts on wobbly weeks.</small>
+        </div>
+        <button class="nav-item" data-view="settings"><span>⚙</span>Settings</button>
+      </div>
+    </aside>
+
+    <main id="main">
+      <header class="topbar">
+        <button class="mobile-menu" id="mobile-menu" aria-label="Open navigation" aria-expanded="false">☰</button>
+        <div>
+          <p class="eyebrow" id="date-line"></p>
+          <h1 id="view-title">Today’s orbit</h1>
+        </div>
+        <div class="topbar-actions">
+          <span class="save-state" id="save-state"><i></i> Saved on this device</span>
+          <button class="button secondary" id="quick-add">+ Add task</button>
+        </div>
+      </header>
+
+      <div class="content" id="view-root" aria-live="polite"></div>
+    </main>
+  </div>
+
+  <dialog id="task-dialog">
+    <form method="dialog" id="task-form" class="dialog-form">
+      <div class="dialog-head">
+        <div><p class="eyebrow">A small promise to future you</p><h2 id="task-dialog-title">Add a task</h2></div>
+        <button class="icon-button" value="cancel" aria-label="Close">×</button>
+      </div>
+      <input type="hidden" id="task-id">
+      <label>Task name<input id="task-title" required maxlength="100" placeholder="e.g. Tailor CV for frontend role"></label>
+      <div class="form-row">
+        <label>Date<input id="task-date" type="date" required></label>
+        <label>Time<input id="task-time" type="time"></label>
+      </div>
+      <div class="form-row">
+        <label>Lane<select id="task-category"><option>Applications</option><option>Portfolio</option><option>Networking</option><option>Skills</option><option>Admin</option><option>Personal</option></select></label>
+        <label>Priority<select id="task-priority"><option value="high">Must do</option><option value="medium" selected>Should do</option><option value="low">Could do</option></select></label>
+      </div>
+      <label>Notes<textarea id="task-notes" rows="3" maxlength="300" placeholder="Useful link, tiny first step, or a note to yourself"></textarea></label>
+      <label class="check-row"><input id="task-repeat" type="checkbox"> Repeat every weekday</label>
+      <div class="dialog-actions"><button class="button ghost" value="cancel">Cancel</button><button class="button primary" value="default" id="save-task">Save task</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="goal-dialog">
+    <form method="dialog" id="goal-form" class="dialog-form">
+      <div class="dialog-head"><div><p class="eyebrow">Choose a finish line</p><h2 id="goal-dialog-title">Add a goal</h2></div><button class="icon-button" value="cancel" aria-label="Close">×</button></div>
+      <input type="hidden" id="goal-id">
+      <label>Goal<input id="goal-title" required maxlength="100" placeholder="e.g. Publish three portfolio case studies"></label>
+      <div class="form-row"><label>Target<input id="goal-target" type="number" min="1" max="999" value="1" required></label><label>Unit<input id="goal-unit" maxlength="24" value="milestone" required></label></div>
+      <label>Current progress<input id="goal-current" type="number" min="0" max="999" value="0" required></label>
+      <label>Deadline<input id="goal-deadline" type="date"></label>
+      <div class="dialog-actions"><button class="button ghost" value="cancel">Cancel</button><button class="button primary" value="default" id="save-goal">Save goal</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="application-dialog">
+    <form method="dialog" id="application-form" class="dialog-form">
+      <div class="dialog-head"><div><p class="eyebrow">Application tracker</p><h2>Add an opportunity</h2></div><button class="icon-button" value="cancel" aria-label="Close">×</button></div>
+      <input type="hidden" id="application-id">
+      <div class="form-row"><label>Company<input id="application-company" required maxlength="70"></label><label>Role<input id="application-role" required maxlength="90"></label></div>
+      <div class="form-row"><label>Stage<select id="application-stage"><option>Wishlist</option><option>Tailoring</option><option>Applied</option><option>Interview</option><option>Offer</option><option>Closed</option></select></label><label>Deadline<input id="application-deadline" type="date"></label></div>
+      <label>Opportunity link<input id="application-link" type="url" placeholder="https://"></label>
+      <label>Next move<input id="application-next" maxlength="120" placeholder="Tailor the first paragraph or prepare interview story"></label>
+      <div class="dialog-actions"><button class="button ghost" value="cancel">Cancel</button><button class="button primary" value="default" id="save-application">Save opportunity</button></div>
+    </form>
+  </dialog>
+
+  <div class="toast" id="toast" role="status"></div>
+  <script src="app.js" type="module"></script>
+</body>
+</html>
