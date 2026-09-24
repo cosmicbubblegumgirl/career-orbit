@@ -47,6 +47,8 @@ const defaultState = () => ({
     { id: uid(), title: 'Practise mock sessions', current: 0, target: 8, unit: 'sessions', deadline: '2026-12-22' }
   ],
   roadmapChecks: {},
+  opportunityChecks: {},
+  weeklyNetworkingChecks: {},
   applications: [],
   contacts: [
     { id: uid(), name: 'Warm contact #1', context: 'Former colleague or facilitator', next: 'Share career update' },
@@ -193,6 +195,149 @@ function applicationTemplate(item) {
 
 function renderNetwork() {
   $('#view-root').innerHTML = `<section class="two-column"><article class="card card-pad"><div class="card-head"><div><p class="eyebrow">Relationship map</p><h2>Warm contacts & follow-ups</h2></div><button class="button primary small" data-action="add-contact">+ Add person</button></div><div class="contact-list">${state.contacts.map(contact => `<div class="person-row" data-contact-id="${contact.id}"><div style="display:flex;gap:11px;align-items:center"><span class="initials">${safe(contact.name.split(/\s+/).map(word => word[0]).slice(0,2).join('').toUpperCase())}</span><div><strong>${safe(contact.name)}</strong><small>${safe(contact.context)} · Next: ${safe(contact.next)}</small></div></div><button class="button ghost small" data-action="contact-done">Done</button></div>`).join('')}</div><p class="subtle">A good follow-up is personal, specific and ends with a gentle next step—advice, a short call or a coffee chat.</p></article><article class="card card-pad"><div class="card-head"><div><p class="eyebrow">Top five</p><h2>Reference bank</h2></div></div><div class="reference-list">${state.references.map(reference => `<label class="reference-row"><div><strong>${safe(reference.name)}</strong><small>${safe(reference.relationship)}</small></div><input type="checkbox" data-reference-id="${reference.id}" ${reference.confirmed ? 'checked' : ''} aria-label="Reference confirmed"></label>`).join('')}</div><p class="subtle">Confirm permission, preferred contact details and what each person can confidently speak about.</p></article></section>`;
+  renderOpportunityRadar();
+}
+
+const opportunitySources = [
+  {
+    "id": "umuzi",
+    "name": "Umuzi",
+    "platform": "LinkedIn",
+    "why": "Learner, alumni and employer updates.",
+    "url": "https://www.linkedin.com/search/results/companies/?keywords=Umuzi"
+  },
+  {
+    "id": "sap",
+    "name": "SAP and SAP University Alliances",
+    "platform": "LinkedIn",
+    "why": "SAP training, events and graduate opportunities.",
+    "url": "https://www.linkedin.com/search/results/companies/?keywords=SAP"
+  },
+  {
+    "id": "afsug",
+    "name": "African SAP User Group (AFSUG)",
+    "platform": "LinkedIn",
+    "why": "Industry conversations and professional networking.",
+    "url": "https://www.linkedin.com/search/results/companies/?keywords=African%20SAP%20User%20Group"
+  },
+  {
+    "id": "offerzen",
+    "name": "OfferZen",
+    "platform": "LinkedIn / website",
+    "why": "Developer opportunities and local hiring insights.",
+    "url": "https://www.offerzen.com/"
+  },
+  {
+    "id": "wethinkcode",
+    "name": "WeThinkCode_",
+    "platform": "LinkedIn",
+    "why": "Developer community and career updates.",
+    "url": "https://www.linkedin.com/search/results/companies/?keywords=WeThinkCode"
+  },
+  {
+    "id": "microsoft",
+    "name": "Microsoft Learn",
+    "platform": "Website / LinkedIn",
+    "why": "Free sessions to strengthen my frontend and cloud skills.",
+    "url": "https://learn.microsoft.com/en-us/training/"
+  },
+  {
+    "id": "devmeetup",
+    "name": "DevMeetup Cape Town",
+    "platform": "Community website",
+    "why": "Developer meetups, hackathons and new connections.",
+    "url": "https://hackathon.devmeetup.capetown/docs/about"
+  },
+  {
+    "id": "sapcommunity",
+    "name": "SAP Community",
+    "platform": "Community website",
+    "why": "SAP Integration Suite discussions, learning and events.",
+    "url": "https://community.sap.com/"
+  },
+  {
+    "id": "github",
+    "name": "GitHub developer communities",
+    "platform": "GitHub",
+    "why": "Learn from open-source work and share my own projects.",
+    "url": "https://github.com/"
+  },
+  {
+    "id": "jobalerts",
+    "name": "Junior remote frontend / UX / SAP job alerts",
+    "platform": "LinkedIn Jobs",
+    "why": "Check eligibility for South African applicants before applying.",
+    "url": "https://www.linkedin.com/jobs/search/?keywords=junior%20frontend%20developer&f_WT=2"
+  },
+  {
+    "id": "recruiters",
+    "name": "Relevant recruiters and employers",
+    "platform": "LinkedIn",
+    "why": "Follow hiring teams and respond to suitable opportunities.",
+    "url": "https://www.linkedin.com/search/results/people/?keywords=technical%20recruiter%20South%20Africa"
+  }
+];
+const weeklyNetworkingActions = [
+  {
+    "id": "roles",
+    "text": "Check my alerts and shortlist up to three suitable remote junior frontend, UX or SAP roles."
+  },
+  {
+    "id": "engage",
+    "text": "Follow two relevant pages and leave two specific, thoughtful comments."
+  },
+  {
+    "id": "post",
+    "text": "Share one genuine project update or lesson from Mind Weather, Resume Radar, Career Orbit or SAP learning."
+  },
+  {
+    "id": "connect",
+    "text": "Reconnect with one person or send a personalised post-event message with a clear question."
+  },
+  {
+    "id": "events",
+    "text": "Look for free webinars and meetups; attend when one fits my calendar and follow up afterwards."
+  }
+];
+
+function orbitRadarWeekKey(){const d=new Date();d.setHours(12,0,0,0);d.setDate(d.getDate()-(d.getDay()+6)%7);return isoDate(d);}
+
+function renderOpportunityRadar(){
+ const done=state.opportunityChecks ||= {};
+ const allWeeks=state.weeklyNetworkingChecks ||= {};
+ const week=allWeeks[orbitRadarWeekKey()] ||= {};
+ const section=document.createElement('section');section.className='opportunity-radar';
+ section.innerHTML='<article class="card card-pad"><p class="eyebrow">My opportunity radar</p><h2>Follow with purpose, not just for the numbers</h2><p class="subtle">I am looking for junior frontend, UX/UI and SAP opportunities I can genuinely apply for from South Africa. These are accounts and channels I plan to follow for hiring updates, free events and useful conversations.</p><p class="radar-progress" data-radar-count></p><div class="radar-list" data-radar-list></div><p class="subtle">Each checkbox means I actually followed that account or channel. LinkedIn links open searches so I can choose the correct official page.</p></article><article class="card card-pad"><div class="card-head"><div><p class="eyebrow">My weekly networking checklist</p><h2>Small steps, real connections</h2></div><button type="button" class="button secondary small" data-action="radar-schedule">Schedule a 25-minute check</button></div><p class="subtle">A fresh checklist starts on Mondays. Previous weeks stay in my saved plan. I will use my portfolio as proof of what I can build and follow up with a real person after attending events.</p><p class="radar-progress" data-radar-week-count></p><div class="radar-week-list" data-radar-week-list></div></article>';
+ section.querySelector('[data-radar-count]').textContent=opportunitySources.filter(x=>done[x.id]).length+' / '+opportunitySources.length+' channels followed';
+ const list=section.querySelector('[data-radar-list]');
+ for(const item of opportunitySources){
+  const row=document.createElement('div');row.className='radar-row';
+  const label=document.createElement('label');label.className='radar-check';
+  const checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.dataset.opportunityId=item.id;checkbox.checked=!!done[item.id];checkbox.setAttribute('aria-label','Followed '+item.name);
+  const copy=document.createElement('span');copy.className='radar-copy';
+  const name=document.createElement('strong');name.textContent=item.name;
+  const note=document.createElement('small');note.textContent=item.platform+' · '+item.why;
+  copy.append(name,note);label.append(checkbox,copy);
+  const link=document.createElement('a');link.href=item.url;link.target='_blank';link.rel='noopener noreferrer';link.className='button ghost small';link.textContent='Explore';
+  row.append(label,link);list.append(row);
+ }
+ section.querySelector('[data-radar-week-count]').textContent=weeklyNetworkingActions.filter(x=>week[x.id]).length+' / '+weeklyNetworkingActions.length+' weekly actions checked';
+ const actions=section.querySelector('[data-radar-week-list]');
+ for(const action of weeklyNetworkingActions){
+  const label=document.createElement('label');label.className='radar-check radar-week-check';
+  const checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.dataset.radarWeeklyId=action.id;checkbox.checked=!!week[action.id];
+  const copy=document.createElement('span');copy.textContent=action.text;label.append(checkbox,copy);actions.append(label);
+ }
+ $('#view-root').append(section);
+}
+
+function scheduleRadarCheck(){
+ const title='Opportunity Radar: 25-minute networking check';
+ const date=new Date();date.setHours(12,0,0,0);date.setDate(date.getDate()+(1+7-date.getDay())%7);
+ const day=isoDate(date);
+ if(state.tasks.some(x=>x.title===title&&x.date===day)){toast('This networking check is already scheduled.');return;}
+ state.tasks.push({id:uid(),title,date:day,time:'12:30',category:'Networking',priority:'medium',notes:'Review Opportunity Radar, follow relevant pages, engage thoughtfully and send one personal follow-up. Use the task calendar button to add this to Google Calendar.',done:false});
+ saveState();render();toast('Networking check added to my planner.');
 }
 
 function renderCalendar() {
@@ -408,6 +553,7 @@ document.addEventListener('click', event => {
   if (action === 'add-application') openApplicationDialog();
   if (action === 'delete-application' && confirm(`Remove ${application.role} at ${application.company}?`)) { state.applications = state.applications.filter(item => item.id !== application.id); saveState(); render(); }
   if (action === 'move-application') { const stages = ['Wishlist','Tailoring','Applied','Interview','Offer','Closed']; application.stage = stages[(stages.indexOf(application.stage) + 1) % stages.length]; if (application.stage === 'Applied') bumpGoal('applications', 1); saveState(); render(); }
+  if (action === 'radar-schedule') scheduleRadarCheck();
   if (action === 'add-contact') { const name = prompt('Name:'); if (!name) return; const context = prompt('How do you know them?') || 'Professional contact'; const next = prompt('Next step?') || 'Send a thoughtful hello'; state.contacts.push({ id: uid(), name, context, next }); saveState(); render(); }
   if (action === 'contact-done') { const id = actionNode.closest('[data-contact-id]').dataset.contactId; state.contacts = state.contacts.filter(item => item.id !== id); bumpGoal('connections', 1); saveState(); render(); toast('Follow-up logged. Nice humaning.'); }
   if (action === 'save-google') { state.settings.googleClientId = $('#google-client-id').value.trim(); saveState(); toast('Calendar setting saved.'); }
@@ -420,6 +566,8 @@ document.addEventListener('click', event => {
 });
 
 document.addEventListener('change', event => {
+  if (event.target.matches('[data-opportunity-id]')) { (state.opportunityChecks ||= {})[event.target.dataset.opportunityId] = event.target.checked; saveState(); renderNetwork(); }
+  if (event.target.matches('[data-radar-weekly-id]')) { const week = ((state.weeklyNetworkingChecks ||= {})[orbitRadarWeekKey()] ||= {}); week[event.target.dataset.radarWeeklyId] = event.target.checked; saveState(); renderNetwork(); }
   if (event.target.matches('[data-action="toggle-task"]')) { const id = event.target.closest('[data-task-id]').dataset.taskId; const task = state.tasks.find(item => item.id === id); task.done = event.target.checked; saveState(); render(); }
   if (event.target.matches('[data-roadmap-key]')) { state.roadmapChecks[event.target.dataset.roadmapKey] = event.target.checked; saveState(); renderPlan(); }
   if (event.target.matches('[data-reference-id]')) { const reference = state.references.find(item => item.id === event.target.dataset.referenceId); reference.confirmed = event.target.checked; saveState(); }
