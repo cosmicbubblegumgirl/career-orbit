@@ -10,7 +10,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <link rel="stylesheet" href="styles.css?v=20261030-applications">
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to planner</a>
@@ -100,13 +101,14 @@
       <div class="form-row"><label>Company<input id="application-company" required maxlength="70"></label><label>Role<input id="application-role" required maxlength="90"></label></div>
       <div class="form-row"><label>Stage<select id="application-stage"><option>Wishlist</option><option>Tailoring</option><option>Applied</option><option>Interview</option><option>Offer</option><option>Closed</option></select></label><label>Deadline<input id="application-deadline" type="date"></label></div>
       <label>Opportunity link<input id="application-link" type="url" placeholder="https://"></label>
-      <label>Next move<input id="application-next" maxlength="120" placeholder="Tailor the first paragraph or prepare interview story"></label>
+      <label>Next move<input id="application-next" maxlength="500" placeholder="Tailor the first paragraph or prepare interview story"></label>
       <div class="dialog-actions"><button class="button ghost" value="cancel">Cancel</button><button class="button primary" value="default" id="save-application">Save opportunity</button></div>
     </form>
   </dialog>
 
   <div class="toast" id="toast" role="status"></div>
-  <script src="app.js?v=20261030-routine" type="module"></script>
+  <script src="app.js?v=20261030-applications" type="module"></script>
 </body>
 </html>
+
 

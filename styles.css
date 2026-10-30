@@ -161,6 +161,14 @@ main { min-width: 0; }
 .application-card span { color: var(--muted); font-size: 12px; margin-top: 2px; }
 .application-card p { font-size: 12px; line-height: 1.4; margin: 12px 0; }
 .application-card footer { display: flex; gap: 5px; justify-content: space-between; align-items: center; }
+.application-card footer > div { display: flex; flex-wrap: wrap; gap: 4px; }
+.application-card { overflow-wrap: anywhere; }
+@media (max-width: 700px) {
+  .kanban { grid-template-columns: minmax(0, 1fr); overflow-x: visible; }
+  .kanban-column { min-height: 0; }
+  .kanban-column .empty-state { padding: 20px; min-height: 0; }
+  .toolbar .settings-actions { flex-wrap: wrap; }
+}
 
 .two-column { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(280px, .8fr); gap: 20px; }
 .contact-list, .reference-list { display: grid; gap: 10px; }
@@ -252,3 +260,4 @@ textarea { resize: vertical; }
 .radar-week-check { padding: 12px; border: 1px solid var(--line); border-radius: 12px; line-height: 1.45; }
 @media (max-width: 1050px) { .opportunity-radar { grid-template-columns: 1fr; } }
 @media (max-width: 470px) { .radar-row { flex-wrap: wrap; } .radar-row .button { margin-left: 27px; } }
+

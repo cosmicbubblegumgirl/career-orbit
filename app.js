@@ -1,4 +1,5 @@
 import { CAREER_ROUTINE, populateCareerRoutine } from './routine.js';
+import { mergeApplicationImport, decodeApplicationFragment } from './applications.js?v=20261030';
 
 const STORE_KEY = 'career-orbit-v1';
 
@@ -187,7 +188,7 @@ function renderApplications() {
   const columns = [
     ['Wishlist', 'Tailoring'], ['Applied'], ['Interview', 'Offer'], ['Closed']
   ];
-  $('#view-root').innerHTML = `<div class="toolbar"><p class="subtle">Treat each application like a small design project: fit, evidence, polish, submit.</p><button class="button primary" data-action="add-application">+ Add opportunity</button></div><section class="kanban">${columns.map((stages, index) => applicationColumn(stages, ['To shape', 'In flight', 'Conversations', 'Archived'][index])).join('')}</section>`;
+  $('#view-root').innerHTML = `<div class="toolbar"><p class="subtle">Track remote opportunities and confirmed applications. Adding a card does not submit an application.</p><div class="settings-actions"><label class="button secondary">Import opportunities<input id="import-opportunities" type="file" accept="application/json,.json" hidden></label><button class="button primary" data-action="add-application">+ Add opportunity</button></div></div><p class="subtle">${state.applications.length} tracked · Saved in this browser. Use an import link or your private backup on another device.</p><section class="kanban">${columns.map((stages, index) => applicationColumn(stages, ['To shape', 'In flight', 'Conversations', 'Archived'][index])).join('')}</section>`;
 }
 
 function applicationColumn(stages, label) {
@@ -196,7 +197,9 @@ function applicationColumn(stages, label) {
 }
 
 function applicationTemplate(item) {
-  return `<article class="application-card" data-application-id="${item.id}"><strong>${safe(item.role)}</strong><span>${safe(item.company)} · ${safe(item.stage)}</span>${item.next ? `<p><b>Next:</b> ${safe(item.next)}</p>` : '<p class="subtle">Choose the next small move.</p>'}<footer>${item.link ? `<a class="button ghost small" href="${safe(item.link)}" target="_blank" rel="noopener">Open role</a>` : '<span></span>'}<span><button class="button ghost small" data-action="move-application">Move</button> <button class="button ghost small" data-action="delete-application">×</button></span></footer></article>`;
+  const link = /^https:\/\//i.test(item.link || '') ? item.link : '';
+  const cv = /^https:\/\//i.test(item.cv || '') ? item.cv : '';
+  return `<article class="application-card" data-application-id="${safe(item.id)}"><strong>${safe(item.role)}</strong><span>${safe(item.company)} · ${safe(item.stage)}</span>${item.deadline ? `<span class="tag">Due ${safe(formatDate(item.deadline, {day:'numeric',month:'short'}))}</span>` : ''}${item.next ? `<p><b>Next:</b> ${safe(item.next)}</p>` : '<p class="subtle">Choose the next small move.</p>'}${item.source ? `<p class="subtle">${safe(item.source)}</p>` : ''}<footer><div>${link ? `<a class="button ghost small" href="${safe(link)}" target="_blank" rel="noopener noreferrer">Open ${link.includes('mail.google.com') ? 'email' : 'role'}</a>` : ''}${cv ? `<a class="button ghost small" href="${safe(cv)}" target="_blank" rel="noopener noreferrer">ATS CV</a>` : ''}</div><div><button class="button ghost small" data-action="edit-application">Edit</button><button class="button ghost small" data-action="delete-application" aria-label="Remove ${safe(item.role)}">×</button></div></footer></article>`;
 }
 
 function renderNetwork() {
@@ -428,7 +431,7 @@ function openApplicationDialog(item = null) {
 function saveApplicationFromForm() {
   if (!$('#application-form').reportValidity()) return;
   const id = $('#application-id').value;
-  const item = { id: id || uid(), company: $('#application-company').value.trim(), role: $('#application-role').value.trim(), stage: $('#application-stage').value, deadline: $('#application-deadline').value, link: $('#application-link').value.trim(), next: $('#application-next').value.trim() };
+  const item = { ...(state.applications.find(old => old.id === id) || {}), id: id || uid(), company: $('#application-company').value.trim(), role: $('#application-role').value.trim(), stage: $('#application-stage').value, deadline: $('#application-deadline').value, link: $('#application-link').value.trim(), next: $('#application-next').value.trim() };
   state.applications = id ? state.applications.map(old => old.id === id ? item : old) : [...state.applications, item];
   if (!id && item.stage === 'Applied') bumpGoal('applications', 1);
   saveState(); $('#application-dialog').close(); render(); toast('Opportunity saved.');
@@ -564,6 +567,7 @@ document.addEventListener('click', event => {
   if (action === 'increase-goal') { goal.current = Math.min(goal.target, goal.current + 1); saveState(); render(); }
   if (action === 'decrease-goal') { goal.current = Math.max(0, goal.current - 1); saveState(); render(); }
   if (action === 'add-application') openApplicationDialog();
+  if (action === 'edit-application') openApplicationDialog(application);
   if (action === 'delete-application' && confirm(`Remove ${application.role} at ${application.company}?`)) { state.applications = state.applications.filter(item => item.id !== application.id); saveState(); render(); }
   if (action === 'move-application') { const stages = ['Wishlist','Tailoring','Applied','Interview','Offer','Closed']; application.stage = stages[(stages.indexOf(application.stage) + 1) % stages.length]; if (application.stage === 'Applied') bumpGoal('applications', 1); saveState(); render(); }
   if (action === 'radar-schedule') scheduleRadarCheck();
@@ -579,6 +583,12 @@ document.addEventListener('click', event => {
 });
 
 document.addEventListener('change', event => {
+  if (event.target.id === 'import-opportunities') {
+    const file = event.target.files[0];
+    if (!file) return;
+    if (file.size > 200000) return toast('Choose an opportunity file smaller than 200 KB.');
+    file.text().then(text => { try { const result = mergeApplicationImport(state, JSON.parse(text)); state = result.state; saveState(); render(); toast(`${result.added} opportunities added. Existing progress preserved.`); } catch { toast('That file is not a valid opportunity import.'); } }).catch(() => toast('The opportunity file could not be read.'));
+  }
   if (event.target.matches('[data-opportunity-id]')) { (state.opportunityChecks ||= {})[event.target.dataset.opportunityId] = event.target.checked; saveState(); renderNetwork(); }
   if (event.target.matches('[data-radar-weekly-id]')) { const week = ((state.weeklyNetworkingChecks ||= {})[orbitRadarWeekKey()] ||= {}); week[event.target.dataset.radarWeeklyId] = event.target.checked; saveState(); renderNetwork(); }
   if (event.target.matches('[data-action="toggle-task"]')) { const id = event.target.closest('[data-task-id]').dataset.taskId; const task = state.tasks.find(item => item.id === id); task.done = event.target.checked; saveState(); render(); }
@@ -600,8 +610,21 @@ $('#save-goal').addEventListener('click', event => { event.preventDefault(); sav
 $('#save-application').addEventListener('click', event => { event.preventDefault(); saveApplicationFromForm(); });
 
 $('#date-line').textContent = new Intl.DateTimeFormat('en-ZA', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(new Date());
+function importFromLink() {
+  if (!location.hash.startsWith('#orbit-import=')) return false;
+  try {
+    const result = mergeApplicationImport(state, decodeApplicationFragment(location.hash));
+    state = result.state;
+    localStorage.setItem(STORE_KEY, JSON.stringify(state));
+    history.replaceState(null, '', location.pathname + location.search + '#applications');
+    toast(`${result.added} opportunities added. Existing progress preserved.`);
+    return true;
+  } catch { toast('The opportunity link could not be imported. Try the private JSON file.'); return false; }
+}
+const importedFromLink = importFromLink();
 saveState();
-render();
+if (importedFromLink || location.hash === '#applications') setView('applications'); else render();
+window.addEventListener('hashchange', () => { if (importFromLink()) { saveState(); setView('applications'); } else if (location.hash === '#applications') setView('applications'); });
 
 if (state.settings.supabaseUrl && state.settings.supabaseKey) {
   import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm').then(async ({ createClient }) => {
@@ -610,4 +633,5 @@ if (state.settings.supabaseUrl && state.settings.supabaseKey) {
     if (session) { cloudUser = session.user; await loadFromCloud(); render(); }
   }).catch(() => {});
 }
+
 
