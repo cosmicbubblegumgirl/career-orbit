@@ -1,5 +1,5 @@
 import { CAREER_ROUTINE, populateCareerRoutine } from './routine.js?v=20261030-gigs';
-import { mergeApplicationImport, decodeApplicationFragment } from './applications.js?v=20261030-efforts';
+import { mergeApplicationImport, decodeApplicationFragment } from './applications.js?v=20261030-upwork-v4';
 import { EFFORT_STATUSES, validateEfforts, recordCompletedTask } from './efforts.js?v=20261030-efforts';
 
 const STORE_KEY = 'career-orbit-v1';
@@ -70,6 +70,14 @@ let activeView = 'today';
 let taskFilter = 'today';
 let effortPlatform = 'All';
 let effortSearch = '';
+let applicationFilter = 'All';
+let applicationSearch = '';
+function applicationMatches(item) {
+  const alert = item.company === 'Upwork · job alert';
+  const upwork = /upwork/i.test(item.company);
+  const kind = applicationFilter === 'All' || (applicationFilter === 'Upwork alerts' && alert) || (applicationFilter === 'Upwork proposals' && upwork && !alert) || (applicationFilter === 'Other applications' && !upwork);
+  return kind && (!applicationSearch || `${item.company} ${item.role} ${item.next || ''} ${item.source || ''}`.toLocaleLowerCase().includes(applicationSearch.toLocaleLowerCase()));
+}
 let cloudClient = null;
 let cloudUser = null;
 let googleAccessToken = null;
@@ -193,11 +201,11 @@ function renderApplications() {
   const columns = [
     ['Wishlist', 'Tailoring'], ['Applied'], ['Interview', 'Offer'], ['Closed']
   ];
-  $('#view-root').innerHTML = `<div class="toolbar"><p class="subtle">Track remote opportunities and confirmed applications. Adding a card does not submit an application.</p><div class="settings-actions"><label class="button secondary">Import opportunities<input id="import-opportunities" type="file" accept="application/json,.json" hidden></label><button class="button primary" data-action="add-application">+ Add opportunity</button></div></div><p class="subtle">${state.applications.length} tracked · Saved in this browser. Use an import link or your private backup on another device.</p><section class="kanban">${columns.map((stages, index) => applicationColumn(stages, ['To shape', 'In flight', 'Conversations', 'Archived'][index])).join('')}</section>`;
+  $('#view-root').innerHTML = `<div class="toolbar"><p class="subtle">Track remote opportunities and confirmed applications. Adding a card does not submit an application.</p><div class="settings-actions"><label class="button secondary">Import opportunities<input id="import-opportunities" type="file" accept="application/json,.json" hidden></label><button class="button primary" data-action="add-application">+ Add opportunity</button></div></div><div class="toolbar effort-toolbar"><label>Show<select id="application-filter">${['All','Upwork alerts','Upwork proposals','Other applications'].map(label=>`<option ${label===applicationFilter?'selected':''}>${label}</option>`).join('')}</select></label><form id="application-search-form"><label>Search applications<input id="application-search" value="${safe(applicationSearch)}" placeholder="Role, platform or source"></label><button class="button ghost small" type="submit">Search</button></form></div><p class="subtle">${state.applications.filter(applicationMatches).length} of ${state.applications.length} tracked · Upwork alerts are leads; proposal drafts stay in Tailoring until submission is confirmed. Saved in this browser. Import your private file on another device.</p><section class="kanban">${columns.map((stages, index) => applicationColumn(stages, ['To shape', 'In flight', 'Conversations', 'Archived'][index])).join('')}</section>`;
 }
 
 function applicationColumn(stages, label) {
-  const items = state.applications.filter(item => stages.includes(item.stage));
+  const items = state.applications.filter(item => stages.includes(item.stage) && applicationMatches(item));
   return `<div class="kanban-column"><div class="kanban-head"><h2>${label}</h2><span class="count">${items.length}</span></div>${items.length ? items.map(applicationTemplate).join('') : emptyTemplate('Quiet for now', 'Add an opportunity when it earns your attention.')}</div>`;
 }
 
@@ -630,11 +638,12 @@ document.addEventListener('click', event => {
 });
 
 document.addEventListener('change', event => {
+  if (event.target.id === 'application-filter') { applicationFilter = event.target.value; renderApplications(); }
   if (event.target.id === 'effort-filter') { effortPlatform = event.target.value; renderEfforts(); }
   if (event.target.id === 'import-opportunities' || event.target.id === 'import-efforts') {
     const file = event.target.files[0];
     if (!file) return;
-    if (file.size > 1000000) return toast('Choose a log file smaller than 1 MB.');
+    if (file.size > 5000000) return toast('Choose a log file smaller than 5 MB.');
     file.text().then(text => { try { const result = mergeApplicationImport(state, JSON.parse(text)); state = result.state; saveState(); render(); toast(`${result.added} opportunities and ${result.effortsAdded || 0} effort entries added. Existing progress preserved.`); } catch { toast('That file is not a valid opportunity import.'); } }).catch(() => toast('The opportunity file could not be read.'));
   }
   if (event.target.matches('[data-opportunity-id]')) { (state.opportunityChecks ||= {})[event.target.dataset.opportunityId] = event.target.checked; saveState(); renderNetwork(); }
@@ -657,7 +666,7 @@ $('#save-task').addEventListener('click', event => { event.preventDefault(); sav
 $('#save-goal').addEventListener('click', event => { event.preventDefault(); saveGoalFromForm(); });
 $('#save-application').addEventListener('click', event => { event.preventDefault(); saveApplicationFromForm(); });
 $('#save-effort').addEventListener('click', event => { event.preventDefault(); saveEffortFromForm(); });
-document.addEventListener('submit', event => { if (event.target.id === 'effort-search-form') { event.preventDefault(); effortSearch = $('#effort-search').value; renderEfforts(); } });
+document.addEventListener('submit', event => { if (event.target.id === 'application-search-form') { event.preventDefault(); applicationSearch = $('#application-search').value; renderApplications(); } if (event.target.id === 'effort-search-form') { event.preventDefault(); effortSearch = $('#effort-search').value; renderEfforts(); } });
 
 $('#date-line').textContent = new Intl.DateTimeFormat('en-ZA', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(new Date());
 function importFromLink() {

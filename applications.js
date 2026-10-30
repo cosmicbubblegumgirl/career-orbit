@@ -1,10 +1,10 @@
 import { validateEfforts, mergeEfforts } from './efforts.js?v=20261030-efforts';
 const stages = new Set(['Wishlist', 'Tailoring', 'Applied', 'Interview', 'Offer', 'Closed']);
 const text = (value, limit) => typeof value === 'string' ? value.trim().slice(0, limit) : '';
-const identity = item => `${item.company}|${item.role}`.normalize('NFKC').toLowerCase().replace(/[^\p{L}\p{N}|]/gu, '');
+const identity = item => item.id?.startsWith('upwork-alert-') ? item.id : `${item.company}|${item.role}`.normalize('NFKC').toLowerCase().replace(/[^\p{L}\p{N}|]/gu, '');
 
 export function validateApplicationImport(payload) {
-  if (!payload || payload.version !== 1 || !Array.isArray(payload.applications) || payload.applications.length > 200) throw new Error('Invalid opportunity file');
+  if (!payload || payload.version !== 1 || !Array.isArray(payload.applications) || payload.applications.length > 2000) throw new Error('Invalid opportunity file');
   const batchId = text(payload.batchId, 100);
   if (!batchId) throw new Error('Missing import identifier');
   const applications = payload.applications.map(item => {
