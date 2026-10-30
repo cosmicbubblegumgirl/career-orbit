@@ -12,6 +12,12 @@ A local-first career planner built around Simoné Govender's 13-week Task 5 acti
 - JSON backup and restore
 - Responsive layout for desktop and mobile
 
+## Weekday career routine
+
+Weekdays from 30 October to 22 December 2026 are prefilled in South African time: morning and afternoon email checks, remote job search, a tailored application, LinkedIn networking, portfolio brainstorming, a screen break, Pogo time and a daily review. The midday gap and weekends stay free.
+
+The routine is added on the next app visit without replacing existing tasks, applications or progress. It is added once per saved plan; editing, completing or deleting a session is preserved. Older cloud plans and imported backups receive the same additive update. Task durations are editable and carried into Google Calendar event links.
+
 ## Optional cloud backup
 
 1. Create a Supabase project.
@@ -29,3 +35,4 @@ The one-click calendar links work without setup. For browser authorization, crea
 ## Publishing
 
 This is a static site. Publish the repository root with GitHub Pages.
+

@@ -70,11 +70,12 @@
         <label>Date<input id="task-date" type="date" required></label>
         <label>Time<input id="task-time" type="time"></label>
       </div>
+      <label>Duration (minutes)<input id="task-duration" type="number" min="5" max="240" step="5" value="30" required></label>
       <div class="form-row">
         <label>Lane<select id="task-category"><option>Applications</option><option>Portfolio</option><option>Networking</option><option>Skills</option><option>Admin</option><option>Personal</option></select></label>
         <label>Priority<select id="task-priority"><option value="high">Must do</option><option value="medium" selected>Should do</option><option value="low">Could do</option></select></label>
       </div>
-      <label>Notes<textarea id="task-notes" rows="3" maxlength="300" placeholder="Useful link, tiny first step, or a note to yourself"></textarea></label>
+      <label>Notes<textarea id="task-notes" rows="3" maxlength="800" placeholder="Useful link, tiny first step, or a note to yourself"></textarea></label>
       <label class="check-row"><input id="task-repeat" type="checkbox"> Repeat every weekday</label>
       <div class="dialog-actions"><button class="button ghost" value="cancel">Cancel</button><button class="button primary" value="default" id="save-task">Save task</button></div>
     </form>
@@ -105,6 +106,7 @@
   </dialog>
 
   <div class="toast" id="toast" role="status"></div>
-  <script src="app.js" type="module"></script>
+  <script src="app.js?v=20261030-routine" type="module"></script>
 </body>
 </html>
+

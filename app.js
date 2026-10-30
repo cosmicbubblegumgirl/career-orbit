@@ -1,3 +1,5 @@
+import { CAREER_ROUTINE, populateCareerRoutine } from './routine.js';
+
 const STORE_KEY = 'career-orbit-v1';
 
 const $ = (selector, root = document) => root.querySelector(selector);
@@ -33,11 +35,7 @@ const roadmap = [
 ];
 
 const defaultState = () => ({
-  tasks: [
-    { id: uid(), title: 'Tailor one application with proof, not fluff', date: isoDate(), time: '09:00', category: 'Applications', priority: 'high', notes: 'Match the opening profile and top project evidence to the role.', done: false },
-    { id: uid(), title: 'Leave two thoughtful LinkedIn comments', date: isoDate(), time: '12:30', category: 'Networking', priority: 'medium', notes: '', done: false },
-    { id: uid(), title: 'Give one portfolio case study a tiny upgrade', date: isoDate(), time: '15:00', category: 'Portfolio', priority: 'medium', notes: 'One screenshot, outcome or accessibility detail is enough.', done: false }
-  ],
+  tasks: [],
   goals: [
     { id: uid(), title: 'Submit thoughtful applications', current: 0, target: 65, unit: 'applications', deadline: '2026-12-22' },
     { id: uid(), title: 'Publish useful LinkedIn posts', current: 0, target: 13, unit: 'posts', deadline: '2026-12-22' },
@@ -74,8 +72,8 @@ let googleAccessToken = null;
 function loadState() {
   try {
     const saved = JSON.parse(localStorage.getItem(STORE_KEY));
-    return saved ? { ...defaultState(), ...saved } : defaultState();
-  } catch { return defaultState(); }
+    return populateCareerRoutine(saved ? { ...defaultState(), ...saved } : defaultState(), isoDate());
+  } catch { return populateCareerRoutine(defaultState(), isoDate()); }
 }
 
 function saveState(message = 'Saved on this device') {
@@ -139,7 +137,7 @@ function renderToday() {
           </div>
         </article>
         <article class="card card-pad quote-card"><blockquote>“A sensible stretch is still a stretch. Apply before your inner critic writes a dissertation.”</blockquote><p>— note to future Simoné</p></article>
-        <article class="card card-pad"><p class="eyebrow">Weekly rhythm</p><h2 class="section-title">Three short blocks</h2><p class="subtle">Monday: find and shortlist. Wednesday: tailor and submit. Friday: follow up, network and review.</p><button class="button ghost small" data-action="weekly-calendar">Schedule weekly rhythm</button></article>
+        ${routineSummaryTemplate()}
       </aside>
     </section>`;
 }
@@ -147,13 +145,21 @@ function renderToday() {
 function taskTemplate(task) {
   return `<div class="task-item ${task.done ? 'completed' : ''}" data-task-id="${task.id}">
     <label class="pretty-check"><input type="checkbox" data-action="toggle-task" ${task.done ? 'checked' : ''} aria-label="Mark ${safe(task.title)} complete"><span></span></label>
-    <div><span class="task-title">${safe(task.title)}</span><div class="task-meta">${task.time ? `<span>${safe(task.time)}</span>` : ''}<span class="tag">${safe(task.category)}</span>${task.priority === 'high' ? '<span class="tag coral">Must do</span>' : ''}${task.repeat ? '<span class="tag mint">Weekdays</span>' : ''}</div></div>
+    <div><span class="task-title">${safe(task.title)}</span><div class="task-meta"><span>${safe(taskTimeLabel(task))}</span><span class="tag">${safe(task.category)}</span>${task.priority === 'high' ? '<span class="tag coral">Must do</span>' : ''}${task.routineId ? '<span class="tag mint">Weekday routine</span>' : task.repeat ? '<span class="tag mint">Weekdays</span>' : ''}</div></div>
     <div class="task-actions"><button data-action="calendar-task" title="Add to Google Calendar" aria-label="Add to Google Calendar">▦</button><button data-action="edit-task" title="Edit" aria-label="Edit task">✎</button><button data-action="delete-task" title="Delete" aria-label="Delete task">×</button></div>
   </div>`;
 }
 
 function metricTemplate(current, target, label, tone) {
   return `<div class="metric"><strong>${current}<small> / ${target}</small></strong><small>${label}</small><div class="bar ${tone}"><span style="width:${percent(current, target)}%"></span></div></div>`;
+}
+
+function taskTimeLabel(task) {
+  return `${task.time || 'Any time'}${task.duration ? ` · ${task.duration} min` : ''}${task.timeZone === CAREER_ROUTINE.timeZone ? ' · SAST' : ''}`;
+}
+
+function routineSummaryTemplate(expanded = false) {
+  return `<article class="card card-pad"><p class="eyebrow">Your weekday routine · SAST</p><h2 class="section-title">Career time, with breathing room</h2><p class="subtle">Prefilled through 22 December 2026. Tick off each session in Today; use the pencil to change a single session.</p><details ${expanded ? 'open' : ''}><summary>View daily timetable</summary><ul>${CAREER_ROUTINE.blocks.map(block => `<li><strong>${block.time}</strong> · ${safe(block.title)} <span class="subtle">(${block.duration} min)</span></li>`).join('')}</ul><p class="subtle">12:00–14:00 stays free for lunch and your own plans. Weekends are open. Brainstorming has a different focus each weekday.</p></details>${expanded ? '' : '<button class="button ghost small" data-action="view-routine">Open my calendar</button>'}</article>`;
 }
 
 function emptyTemplate(title, copy) { return `<div class="empty-state"><strong>${title}</strong>${copy}</div>`; }
@@ -346,7 +352,7 @@ function renderCalendar() {
     return result;
   }, {});
   const dates = Object.keys(groups);
-  $('#view-root').innerHTML = `<div class="toolbar"><p class="subtle">A date without a next action is just decorative. Give the week somewhere to land.</p><button class="button primary" data-action="add-task">+ Schedule task</button></div><section class="calendar-board">${dates.length ? dates.map(date => `<div class="date-group"><div class="date-label"><strong>${formatDate(date, {weekday:'short', day:'numeric', month:'short'})}</strong><span>${date === isoDate() ? 'Today' : date}</span></div><div class="calendar-items">${groups[date].map(task => `<div class="calendar-item"><i style="background:${categoryColor(task.category)}"></i><div><strong>${safe(task.title)}</strong><small>${task.time || 'Any time'} · ${safe(task.category)}</small></div><button class="button ghost small" data-task-id="${task.id}" data-action="calendar-task">Google Calendar</button></div>`).join('')}</div></div>`).join('') : emptyTemplate('The calendar is empty', 'Schedule a small action and give future you a fighting chance.')}</section>`;
+  $('#view-root').innerHTML = `${routineSummaryTemplate(true)}<div class="toolbar"><p class="subtle">Your dated sessions are below. Edit or complete them in Today → All. Each Google Calendar button adds only that session.</p><button class="button primary" data-action="add-task">+ Schedule task</button></div><section class="calendar-board">${dates.length ? dates.map(date => `<div class="date-group"><div class="date-label"><strong>${formatDate(date, {weekday:'short', day:'numeric', month:'short'})}</strong><span>${date === isoDate() ? 'Today' : date}</span></div><div class="calendar-items">${groups[date].map(task => `<div class="calendar-item"><i style="background:${categoryColor(task.category)}"></i><div><strong>${safe(task.title)}</strong><small>${safe(taskTimeLabel(task))} · ${safe(task.category)}${task.done ? ' · Complete' : ''}</small></div><button class="button ghost small" data-task-id="${task.id}" data-action="calendar-task">Google Calendar</button></div>`).join('')}</div></div>`).join('') : emptyTemplate('The calendar is empty', 'Schedule a small action and give future you a fighting chance.')}</section>`;
 }
 
 function categoryColor(category) {
@@ -369,6 +375,7 @@ function openTaskDialog(task = null) {
   $('#task-title').value = task?.title || '';
   $('#task-date').value = task?.date || isoDate();
   $('#task-time').value = task?.time || '';
+  $('#task-duration').value = task?.duration || 30;
   $('#task-category').value = task?.category || 'Applications';
   $('#task-priority').value = task?.priority || 'medium';
   $('#task-notes').value = task?.notes || '';
@@ -379,7 +386,8 @@ function openTaskDialog(task = null) {
 function saveTaskFromForm() {
   if (!$('#task-form').reportValidity()) return;
   const id = $('#task-id').value;
-  const task = { id: id || uid(), title: $('#task-title').value.trim(), date: $('#task-date').value, time: $('#task-time').value, category: $('#task-category').value, priority: $('#task-priority').value, notes: $('#task-notes').value.trim(), repeat: $('#task-repeat').checked, done: id ? state.tasks.find(item => item.id === id)?.done || false : false };
+  const previous = state.tasks.find(item => item.id === id);
+  const task = { ...previous, id: id || uid(), title: $('#task-title').value.trim(), date: $('#task-date').value, time: $('#task-time').value, duration: Number($('#task-duration').value), category: $('#task-category').value, priority: $('#task-priority').value, notes: $('#task-notes').value.trim(), repeat: $('#task-repeat').checked, done: previous?.done || false };
   state.tasks = id ? state.tasks.map(item => item.id === id ? task : item) : [...state.tasks, task];
   saveState();
   $('#task-dialog').close();
@@ -430,12 +438,17 @@ function bumpGoal(unit, amount) {
   state.goals = state.goals.map(goal => goal.unit === unit ? { ...goal, current: Math.max(0, Math.min(goal.target, goal.current + amount)) } : goal);
 }
 
+function taskCalendarWindow(task) {
+  const start = `${task.date}T${task.time || '09:00'}:00`;
+  // UTC arithmetic here calculates wall-clock fields; the event carries its actual timezone below.
+  const end = new Date(new Date(`${start}Z`).getTime() + (task.duration || 30) * 60000).toISOString().slice(0, 19);
+  return { start, end, timeZone: task.timeZone || Intl.DateTimeFormat().resolvedOptions().timeZone };
+}
+
 function googleCalendarUrl(task) {
-  const start = `${task.date.replaceAll('-', '')}T${(task.time || '09:00').replace(':', '')}00`;
-  const startDate = new Date(`${task.date}T${task.time || '09:00'}:00`);
-  const endDate = new Date(startDate.getTime() + 30 * 60000);
-  const end = `${isoDate(endDate).replaceAll('-', '')}T${String(endDate.getHours()).padStart(2,'0')}${String(endDate.getMinutes()).padStart(2,'0')}00`;
-  const params = new URLSearchParams({ action: 'TEMPLATE', text: task.title, dates: `${start}/${end}`, details: task.notes || `Career Orbit · ${task.category}` });
+  const { start, end, timeZone } = taskCalendarWindow(task);
+  const compact = value => value.replaceAll('-', '').replaceAll(':', '');
+  const params = new URLSearchParams({ action: 'TEMPLATE', text: task.title, dates: `${compact(start)}/${compact(end)}`, ctz: timeZone, details: task.notes || `Career Orbit · ${task.category}` });
   return `https://calendar.google.com/calendar/render?${params}`;
 }
 
@@ -479,7 +492,7 @@ async function syncToCloud() {
 async function loadFromCloud() {
   const { data, error } = await cloudClient.from('career_plans').select('payload').eq('user_id', cloudUser.id).maybeSingle();
   if (error) throw error;
-  if (data?.payload) { state = { ...defaultState(), ...data.payload }; saveState('Synced'); }
+  if (data?.payload) { state = populateCareerRoutine({ ...defaultState(), ...data.payload }, isoDate()); saveState('Synced'); }
   else await syncToCloud();
 }
 
@@ -500,13 +513,12 @@ async function sendToGoogleCalendar(task) {
     window.open(googleCalendarUrl(task), '_blank', 'noopener');
     return;
   }
-  const start = new Date(`${task.date}T${task.time || '09:00'}:00`);
-  const end = new Date(start.getTime() + 30 * 60000);
+  const { start, end, timeZone } = taskCalendarWindow(task);
   try {
     const response = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
       method: 'POST',
       headers: { Authorization: `Bearer ${googleAccessToken}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ summary: task.title, description: task.notes || `Career Orbit · ${task.category}`, start: { dateTime: start.toISOString() }, end: { dateTime: end.toISOString() } })
+      body: JSON.stringify({ summary: task.title, description: task.notes || `Career Orbit · ${task.category}`, start: { dateTime: start, timeZone }, end: { dateTime: end, timeZone } })
     });
     if (!response.ok) throw new Error('The calendar session may have expired.');
     toast('Event added to Google Calendar.');
@@ -544,6 +556,7 @@ document.addEventListener('click', event => {
   if (action === 'edit-task') openTaskDialog(task);
   if (action === 'delete-task' && confirm(`Delete “${task.title}”?`)) { state.tasks = state.tasks.filter(item => item.id !== task.id); saveState(); render(); }
   if (action === 'calendar-task') sendToGoogleCalendar(task);
+  if (action === 'view-routine') setView('calendar');
   if (action === 'weekly-calendar' || action === 'plan-calendar') addWeeklyRhythm();
   if (action === 'add-goal') openGoalDialog();
   if (action === 'edit-goal') openGoalDialog(goal);
@@ -562,7 +575,7 @@ document.addEventListener('click', event => {
   if (action === 'sync-cloud') syncToCloud().then(() => toast('Plan synced.'));
   if (action === 'sign-out') cloudClient?.auth.signOut().then(() => { cloudUser = null; renderSettings(); toast('Signed out.'); });
   if (action === 'export-data') exportData();
-  if (action === 'reset-data' && confirm('Reset all local changes and return to the original plan?')) { state = defaultState(); saveState(); render(); }
+  if (action === 'reset-data' && confirm('Reset all local changes and return to the original plan?')) { state = populateCareerRoutine(defaultState(), isoDate()); saveState(); render(); }
 });
 
 document.addEventListener('change', event => {
@@ -571,7 +584,7 @@ document.addEventListener('change', event => {
   if (event.target.matches('[data-action="toggle-task"]')) { const id = event.target.closest('[data-task-id]').dataset.taskId; const task = state.tasks.find(item => item.id === id); task.done = event.target.checked; saveState(); render(); }
   if (event.target.matches('[data-roadmap-key]')) { state.roadmapChecks[event.target.dataset.roadmapKey] = event.target.checked; saveState(); renderPlan(); }
   if (event.target.matches('[data-reference-id]')) { const reference = state.references.find(item => item.id === event.target.dataset.referenceId); reference.confirmed = event.target.checked; saveState(); }
-  if (event.target.id === 'import-data') { const file = event.target.files[0]; if (!file) return; file.text().then(text => { try { state = { ...defaultState(), ...JSON.parse(text) }; saveState(); render(); toast('Backup restored.'); } catch { toast('That file is not a valid backup.'); } }); }
+  if (event.target.id === 'import-data') { const file = event.target.files[0]; if (!file) return; file.text().then(text => { try { state = populateCareerRoutine({ ...defaultState(), ...JSON.parse(text) }, isoDate()); saveState(); render(); toast('Backup restored.'); } catch { toast('That file is not a valid backup.'); } }); }
 });
 
 document.addEventListener('click', event => {
@@ -587,6 +600,7 @@ $('#save-goal').addEventListener('click', event => { event.preventDefault(); sav
 $('#save-application').addEventListener('click', event => { event.preventDefault(); saveApplicationFromForm(); });
 
 $('#date-line').textContent = new Intl.DateTimeFormat('en-ZA', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(new Date());
+saveState();
 render();
 
 if (state.settings.supabaseUrl && state.settings.supabaseKey) {
@@ -596,3 +610,4 @@ if (state.settings.supabaseUrl && state.settings.supabaseKey) {
     if (session) { cloudUser = session.user; await loadFromCloud(); render(); }
   }).catch(() => {});
 }
+
