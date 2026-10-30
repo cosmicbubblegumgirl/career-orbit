@@ -1,5 +1,6 @@
-import { CAREER_ROUTINE, populateCareerRoutine } from './routine.js';
-import { mergeApplicationImport, decodeApplicationFragment } from './applications.js?v=20261030';
+import { CAREER_ROUTINE, populateCareerRoutine } from './routine.js?v=20261030-gigs';
+import { mergeApplicationImport, decodeApplicationFragment } from './applications.js?v=20261030-efforts';
+import { EFFORT_STATUSES, validateEfforts, recordCompletedTask } from './efforts.js?v=20261030-efforts';
 
 const STORE_KEY = 'career-orbit-v1';
 
@@ -49,6 +50,7 @@ const defaultState = () => ({
   opportunityChecks: {},
   weeklyNetworkingChecks: {},
   applications: [],
+  efforts: [],
   contacts: [
     { id: uid(), name: 'Warm contact #1', context: 'Former colleague or facilitator', next: 'Share career update' },
     { id: uid(), name: 'Warm contact #2', context: 'Developer or designer in my network', next: 'Ask for one practical tip' }
@@ -66,6 +68,8 @@ const defaultState = () => ({
 let state = loadState();
 let activeView = 'today';
 let taskFilter = 'today';
+let effortPlatform = 'All';
+let effortSearch = '';
 let cloudClient = null;
 let cloudUser = null;
 let googleAccessToken = null;
@@ -89,7 +93,7 @@ function formatDate(date, options = { weekday: 'long', day: 'numeric', month: 'l
 
 function setView(view) {
   activeView = view;
-  const titles = { today: 'Today’s orbit', plan: 'Your 13-week flight plan', goals: 'Goals that can be measured', applications: 'Application runway', network: 'People, not just profiles', calendar: 'Calendar view', settings: 'Connections & backup' };
+  const titles = { today: 'Today’s orbit', plan: 'Your 13-week flight plan', goals: 'Goals that can be measured', applications: 'Application runway', efforts: 'Your job-search effort log', network: 'People, not just profiles', calendar: 'Calendar view', settings: 'Connections & backup' };
   $('#view-title').textContent = titles[view];
   $$('.nav-item[data-view]').forEach(button => button.classList.toggle('active', button.dataset.view === view));
   $('.sidebar').classList.remove('open');
@@ -98,7 +102,7 @@ function setView(view) {
 }
 
 function render() {
-  const views = { today: renderToday, plan: renderPlan, goals: renderGoals, applications: renderApplications, network: renderNetwork, calendar: renderCalendar, settings: renderSettings };
+  const views = { today: renderToday, plan: renderPlan, goals: renderGoals, applications: renderApplications, efforts: renderEfforts, network: renderNetwork, calendar: renderCalendar, settings: renderSettings };
   views[activeView]();
 }
 
@@ -139,6 +143,7 @@ function renderToday() {
         </article>
         <article class="card card-pad quote-card"><blockquote>“A sensible stretch is still a stretch. Apply before your inner critic writes a dissertation.”</blockquote><p>— note to future Simoné</p></article>
         ${routineSummaryTemplate()}
+        <article class="card card-pad"><p class="eyebrow">The work behind the applications</p><h2>${(state.efforts || []).length} effort records</h2><p class="subtle">Keep CVs, proposals, interviews, portfolio work and platform activity together.</p><button class="button ghost small" data-action="view-efforts">Open effort log</button></article>
       </aside>
     </section>`;
 }
@@ -160,7 +165,7 @@ function taskTimeLabel(task) {
 }
 
 function routineSummaryTemplate(expanded = false) {
-  return `<article class="card card-pad"><p class="eyebrow">Your weekday routine · SAST</p><h2 class="section-title">Career time, with breathing room</h2><p class="subtle">Prefilled through 22 December 2026. Tick off each session in Today; use the pencil to change a single session.</p><details ${expanded ? 'open' : ''}><summary>View daily timetable</summary><ul>${CAREER_ROUTINE.blocks.map(block => `<li><strong>${block.time}</strong> · ${safe(block.title)} <span class="subtle">(${block.duration} min)</span></li>`).join('')}</ul><p class="subtle">12:00–14:00 stays free for lunch and your own plans. Weekends are open. Brainstorming has a different focus each weekday.</p></details>${expanded ? '' : '<button class="button ghost small" data-action="view-routine">Open my calendar</button>'}</article>`;
+  return `<article class="card card-pad"><p class="eyebrow">Your weekday routine · SAST</p><h2 class="section-title">Career time, with breathing room</h2><p class="subtle">Prefilled through 22 December 2026. Tick off each session in Today; use the pencil to change a single session.</p><details ${expanded ? 'open' : ''}><summary>View daily timetable</summary><ul>${CAREER_ROUTINE.blocks.map(block => `<li><strong>${block.time}</strong> · ${safe(block.title)} <span class="subtle">(${block.duration} min)</span></li>`).join('')}</ul><p class="subtle">12:00–12:30 is lunch. Outlier is 12:30–13:00 and Upwork is 13:00–13:45, followed by a short break. Weekends are open. Brainstorming has a different focus each weekday.</p></details>${expanded ? '' : '<button class="button ghost small" data-action="view-routine">Open my calendar</button>'}</article>`;
 }
 
 function emptyTemplate(title, copy) { return `<div class="empty-state"><strong>${title}</strong>${copy}</div>`; }
@@ -200,6 +205,42 @@ function applicationTemplate(item) {
   const link = /^https:\/\//i.test(item.link || '') ? item.link : '';
   const cv = /^https:\/\//i.test(item.cv || '') ? item.cv : '';
   return `<article class="application-card" data-application-id="${safe(item.id)}"><strong>${safe(item.role)}</strong><span>${safe(item.company)} · ${safe(item.stage)}</span>${item.deadline ? `<span class="tag">Due ${safe(formatDate(item.deadline, {day:'numeric',month:'short'}))}</span>` : ''}${item.next ? `<p><b>Next:</b> ${safe(item.next)}</p>` : '<p class="subtle">Choose the next small move.</p>'}${item.source ? `<p class="subtle">${safe(item.source)}</p>` : ''}<footer><div>${link ? `<a class="button ghost small" href="${safe(link)}" target="_blank" rel="noopener noreferrer">Open ${link.includes('mail.google.com') ? 'email' : 'role'}</a>` : ''}${cv ? `<a class="button ghost small" href="${safe(cv)}" target="_blank" rel="noopener noreferrer">ATS CV</a>` : ''}</div><div><button class="button ghost small" data-action="edit-application">Edit</button><button class="button ghost small" data-action="delete-application" aria-label="Remove ${safe(item.role)}">×</button></div></footer></article>`;
+}
+
+function renderEfforts() {
+  const all = state.efforts || [];
+  const platforms = [...new Set(all.map(item => item.platform))].sort();
+  const search = effortSearch.toLocaleLowerCase();
+  const rows = all.filter(item => (effortPlatform === 'All' || item.platform === effortPlatform) && (!search || `${item.title} ${item.notes} ${item.type} ${item.platform} ${item.source}`.toLocaleLowerCase().includes(search))).sort((a,b) => b.date.localeCompare(a.date) || a.title.localeCompare(b.title));
+  const totals = {prepared: all.filter(x=>x.status==='Prepared').length, submissions: all.filter(x=>x.status==='Submitted').length, completed: all.filter(x=>x.status==='Completed').length};
+  $('#view-root').innerHTML = `<section class="card card-pad effort-overview"><p class="eyebrow">A record of the work behind the applications</p><h2>Preparation counts. Evidence keeps it clear.</h2><p class="subtle">CVs, cover letters, proposals, interviews, portfolio work, networking and platform activity. Dates are evidence dates; preparation and alerts are never counted as confirmed applications. Only manually recorded actual minutes are totalled.</p><div class="metric-grid">${metricTemplate(all.length,all.length||1,'effort records','')}${metricTemplate(totals.prepared,all.length||1,'prepared','coral')}${metricTemplate(totals.submissions,all.length||1,'submission records','mint')}${metricTemplate(totals.completed,all.length||1,'completed activities','')}</div><p class="subtle">${all.filter(x=>x.minutes).reduce((sum,x)=>sum+x.minutes,0)} actual minutes recorded · ${all.filter(x=>x.platform==='Upwork').length} Upwork entries · ${all.filter(x=>x.platform==='Outlier').length} Outlier entries</p></section><div class="toolbar effort-toolbar"><div class="settings-actions"><label>Platform<select id="effort-filter"><option>All</option>${platforms.map(platform=>`<option ${platform===effortPlatform?'selected':''}>${safe(platform)}</option>`).join('')}</select></label><form id="effort-search-form"><label>Search<input id="effort-search" value="${safe(effortSearch)}" placeholder="Role, platform or work sample"></label><button class="button ghost small" type="submit">Search</button></form></div><div class="settings-actions"><label class="button secondary">Import log<input id="import-efforts" type="file" accept="application/json,.json" hidden></label><button class="button primary" data-action="add-effort">+ Log effort</button></div></div><p class="subtle">${rows.length} of ${all.length} entries · Saved in this browser. Import your private log on another device.</p><section class="effort-list">${rows.length?rows.map(effortTemplate).join(''):emptyTemplate('Your work belongs here','Import your log or add a CV, proposal, interview, networking session or Outlier activity.')}</section>`;
+}
+
+function effortTemplate(item) {
+  const link = /^https:\/\//i.test(item.link || '') ? item.link : '';
+  return `<article class="card card-pad effort-entry" data-effort-id="${safe(item.id)}"><div class="effort-entry-head"><div><p class="eyebrow">${safe(formatDate(item.date,{day:'numeric',month:'short',year:'numeric'}))} · ${safe(item.platform)}</p><h3>${safe(item.title)}</h3></div><span class="tag ${item.status==='Completed'||item.status==='Viewed'?'mint':''}">${safe(item.status)}</span></div><p class="subtle">${safe(item.type)}${item.minutes?` · ${item.minutes} actual minutes`:''}</p>${item.notes?`<p>${safe(item.notes)}</p>`:''}${item.source?`<details><summary>Evidence and source</summary><p class="subtle">${safe(item.source)}</p></details>`:''}<footer>${link?`<a class="button ghost small" href="${safe(link)}" target="_blank" rel="noopener noreferrer">Open evidence</a>`:'<span></span>'}<div><button class="button ghost small" data-action="edit-effort">Edit</button><button class="button ghost small" data-action="delete-effort" aria-label="Remove ${safe(item.title)}">×</button></div></footer></article>`;
+}
+
+function openEffortDialog(item = null) {
+  $('#effort-dialog-title').textContent = item ? 'Edit effort' : 'Log an effort';
+  for (const key of ['id','title','platform','type','notes','link']) $(`#effort-${key}`).value = item?.[key] || '';
+  $('#effort-date').value = item?.date || isoDate();
+  $('#effort-status').value = item?.status || 'Prepared';
+  $('#effort-minutes').value = item?.minutes || '';
+  $('#effort-dialog').showModal();
+}
+
+function saveEffortFromForm() {
+  if (!$('#effort-form').reportValidity()) return;
+  const id = $('#effort-id').value || uid();
+  const previous = (state.efforts || []).find(item => item.id === id);
+  const item = {id,source:previous?.source || 'Manually logged in Career Orbit',...(previous?.taskId?{taskId:previous.taskId}:{})};
+  for (const key of ['title','date','platform','type','status','notes','link','minutes']) item[key] = $(`#effort-${key}`).value;
+  try {
+    const clean = validateEfforts([item])[0];
+    state.efforts = [...(state.efforts || []).filter(entry=>entry.id!==id),clean];
+    saveState(); $('#effort-dialog').close(); renderEfforts(); toast('Effort recorded.');
+  } catch { toast('Check the date, evidence URL and actual minutes. Evidence links must use HTTPS.'); }
 }
 
 function renderNetwork() {
@@ -554,6 +595,12 @@ document.addEventListener('click', event => {
   const goal = goalNode ? state.goals.find(item => item.id === goalNode.dataset.goalId) : null;
   const applicationNode = actionNode.closest('[data-application-id]');
   const application = applicationNode ? state.applications.find(item => item.id === applicationNode.dataset.applicationId) : null;
+  const effortNode = actionNode.closest('[data-effort-id]');
+  const effort = effortNode ? (state.efforts || []).find(item => item.id === effortNode.dataset.effortId) : null;
+  if (action === 'view-efforts') setView('efforts');
+  if (action === 'add-effort') openEffortDialog();
+  if (action === 'edit-effort') openEffortDialog(effort);
+  if (action === 'delete-effort' && effort && confirm(`Remove this effort record: ${effort.title}?`)) { state.efforts = state.efforts.filter(item => item.id !== effort.id); saveState(); renderEfforts(); }
 
   if (action === 'add-task') openTaskDialog();
   if (action === 'edit-task') openTaskDialog(task);
@@ -583,15 +630,16 @@ document.addEventListener('click', event => {
 });
 
 document.addEventListener('change', event => {
-  if (event.target.id === 'import-opportunities') {
+  if (event.target.id === 'effort-filter') { effortPlatform = event.target.value; renderEfforts(); }
+  if (event.target.id === 'import-opportunities' || event.target.id === 'import-efforts') {
     const file = event.target.files[0];
     if (!file) return;
-    if (file.size > 200000) return toast('Choose an opportunity file smaller than 200 KB.');
-    file.text().then(text => { try { const result = mergeApplicationImport(state, JSON.parse(text)); state = result.state; saveState(); render(); toast(`${result.added} opportunities added. Existing progress preserved.`); } catch { toast('That file is not a valid opportunity import.'); } }).catch(() => toast('The opportunity file could not be read.'));
+    if (file.size > 1000000) return toast('Choose a log file smaller than 1 MB.');
+    file.text().then(text => { try { const result = mergeApplicationImport(state, JSON.parse(text)); state = result.state; saveState(); render(); toast(`${result.added} opportunities and ${result.effortsAdded || 0} effort entries added. Existing progress preserved.`); } catch { toast('That file is not a valid opportunity import.'); } }).catch(() => toast('The opportunity file could not be read.'));
   }
   if (event.target.matches('[data-opportunity-id]')) { (state.opportunityChecks ||= {})[event.target.dataset.opportunityId] = event.target.checked; saveState(); renderNetwork(); }
   if (event.target.matches('[data-radar-weekly-id]')) { const week = ((state.weeklyNetworkingChecks ||= {})[orbitRadarWeekKey()] ||= {}); week[event.target.dataset.radarWeeklyId] = event.target.checked; saveState(); renderNetwork(); }
-  if (event.target.matches('[data-action="toggle-task"]')) { const id = event.target.closest('[data-task-id]').dataset.taskId; const task = state.tasks.find(item => item.id === id); task.done = event.target.checked; saveState(); render(); }
+  if (event.target.matches('[data-action="toggle-task"]')) { const id = event.target.closest('[data-task-id]').dataset.taskId; const task = state.tasks.find(item => item.id === id); task.done = event.target.checked; state = recordCompletedTask(state, task, isoDate()); saveState(); render(); }
   if (event.target.matches('[data-roadmap-key]')) { state.roadmapChecks[event.target.dataset.roadmapKey] = event.target.checked; saveState(); renderPlan(); }
   if (event.target.matches('[data-reference-id]')) { const reference = state.references.find(item => item.id === event.target.dataset.referenceId); reference.confirmed = event.target.checked; saveState(); }
   if (event.target.id === 'import-data') { const file = event.target.files[0]; if (!file) return; file.text().then(text => { try { state = populateCareerRoutine({ ...defaultState(), ...JSON.parse(text) }, isoDate()); saveState(); render(); toast('Backup restored.'); } catch { toast('That file is not a valid backup.'); } }); }
@@ -608,6 +656,8 @@ $('#mobile-menu').addEventListener('click', () => { const sidebar = $('.sidebar'
 $('#save-task').addEventListener('click', event => { event.preventDefault(); saveTaskFromForm(); });
 $('#save-goal').addEventListener('click', event => { event.preventDefault(); saveGoalFromForm(); });
 $('#save-application').addEventListener('click', event => { event.preventDefault(); saveApplicationFromForm(); });
+$('#save-effort').addEventListener('click', event => { event.preventDefault(); saveEffortFromForm(); });
+document.addEventListener('submit', event => { if (event.target.id === 'effort-search-form') { event.preventDefault(); effortSearch = $('#effort-search').value; renderEfforts(); } });
 
 $('#date-line').textContent = new Intl.DateTimeFormat('en-ZA', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(new Date());
 function importFromLink() {
@@ -617,14 +667,14 @@ function importFromLink() {
     state = result.state;
     localStorage.setItem(STORE_KEY, JSON.stringify(state));
     history.replaceState(null, '', location.pathname + location.search + '#applications');
-    toast(`${result.added} opportunities added. Existing progress preserved.`);
+    toast(`${result.added} opportunities and ${result.effortsAdded || 0} effort entries added. Existing progress preserved.`);
     return true;
-  } catch { toast('The opportunity link could not be imported. Try the private JSON file.'); return false; }
+  } catch { toast('The log link could not be imported. Try the private JSON file.'); return false; }
 }
 const importedFromLink = importFromLink();
 saveState();
-if (importedFromLink || location.hash === '#applications') setView('applications'); else render();
-window.addEventListener('hashchange', () => { if (importFromLink()) { saveState(); setView('applications'); } else if (location.hash === '#applications') setView('applications'); });
+if (importedFromLink || location.hash === '#applications') setView('applications'); else if (location.hash === '#efforts') setView('efforts'); else render();
+window.addEventListener('hashchange', () => { if (importFromLink()) { saveState(); setView('applications'); } else if (location.hash === '#applications') setView('applications'); else if (location.hash === '#efforts') setView('efforts'); });
 
 if (state.settings.supabaseUrl && state.settings.supabaseKey) {
   import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm').then(async ({ createClient }) => {
@@ -633,5 +683,6 @@ if (state.settings.supabaseUrl && state.settings.supabaseKey) {
     if (session) { cloudUser = session.user; await loadFromCloud(); render(); }
   }).catch(() => {});
 }
+
 
 

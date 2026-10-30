@@ -28,6 +28,7 @@
         <button class="nav-item" data-view="plan"><span>⌁</span>13-week plan</button>
         <button class="nav-item" data-view="goals"><span>◇</span>Goals</button>
         <button class="nav-item" data-view="applications"><span>▣</span>Applications</button>
+        <button class="nav-item" data-view="efforts"><span>✓</span>Effort log</button>
         <button class="nav-item" data-view="network"><span>◌</span>Network</button>
         <button class="nav-item" data-view="calendar"><span>▦</span>Calendar</button>
       </nav>
@@ -107,8 +108,22 @@
   </dialog>
 
   <div class="toast" id="toast" role="status"></div>
-  <script src="app.js?v=20261030-applications" type="module"></script>
+  <dialog id="effort-dialog">
+    <form method="dialog" id="effort-form" class="dialog-form">
+      <div class="dialog-head"><div><p class="eyebrow">Keep a record of the work</p><h2 id="effort-dialog-title">Log an effort</h2></div><button class="icon-button" value="cancel" formnovalidate aria-label="Close">×</button></div>
+      <input type="hidden" id="effort-id">
+      <label>What did you do?<input id="effort-title" maxlength="200" required></label>
+      <div class="form-row"><label>Date<input id="effort-date" type="date" required></label><label>Platform<input id="effort-platform" maxlength="80" list="effort-platforms" required><datalist id="effort-platforms"><option>Upwork</option><option>Outlier</option><option>LinkedIn</option><option>Umuzi</option><option>Portfolio</option><option>Applications</option></datalist></label></div>
+      <div class="form-row"><label>Type<input id="effort-type" maxlength="80" placeholder="CV preparation, proposal, interview"></label><label>Status<select id="effort-status"><option>Prepared</option><option>Submitted</option><option>Viewed</option><option>Completed</option><option>Acknowledged</option><option>Pending</option><option>Needs checking</option><option>Outcome</option></select></label></div>
+      <label>Notes<textarea id="effort-notes" rows="3" maxlength="2500"></textarea></label>
+      <label>Evidence link<input id="effort-link" type="url" placeholder="https://"></label>
+      <label>Actual minutes spent optional<input id="effort-minutes" type="number" min="1" max="1440" placeholder="Leave empty if unknown"></label>
+      <div class="dialog-actions"><button class="button ghost" value="cancel" formnovalidate>Cancel</button><button class="button primary" id="save-effort">Save effort</button></div>
+    </form>
+  </dialog>
+  <script src="app.js?v=20261030-efforts-v1" type="module"></script>
 </body>
 </html>
+
 
 

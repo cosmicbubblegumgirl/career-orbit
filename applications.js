@@ -1,3 +1,4 @@
+import { validateEfforts, mergeEfforts } from './efforts.js?v=20261030-efforts';
 const stages = new Set(['Wishlist', 'Tailoring', 'Applied', 'Interview', 'Offer', 'Closed']);
 const text = (value, limit) => typeof value === 'string' ? value.trim().slice(0, limit) : '';
 const identity = item => `${item.company}|${item.role}`.normalize('NFKC').toLowerCase().replace(/[^\p{L}\p{N}|]/gu, '');
@@ -19,12 +20,12 @@ export function validateApplicationImport(payload) {
     }
     return clean;
   });
-  return { batchId, applications };
+  return { batchId, applications, efforts: validateEfforts(payload.efforts || []) };
 }
 
 export function mergeApplicationImport(current, rawPayload) {
-  const { batchId, applications } = validateApplicationImport(rawPayload);
-  if ((current.applicationImports || []).includes(batchId)) return { state: current, added: 0 };
+  const { batchId, applications, efforts } = validateApplicationImport(rawPayload);
+  if ((current.applicationImports || []).includes(batchId)) return { state: current, added: 0, effortsAdded: 0 };
   const known = new Set((current.applications || []).map(identity));
   const records = [...(current.applications || [])];
   for (const item of applications) {
@@ -33,7 +34,8 @@ export function mergeApplicationImport(current, rawPayload) {
     known.add(key);
     records.push(item);
   }
-  return { state: { ...current, applications: records, applicationImports: [...(current.applicationImports || []), batchId] }, added: records.length - (current.applications || []).length };
+  const mergedEfforts = mergeEfforts(current.efforts, efforts);
+  return { state: { ...current, applications: records, efforts: mergedEfforts, applicationImports: [...(current.applicationImports || []), batchId] }, added: records.length - (current.applications || []).length, effortsAdded: mergedEfforts.length - (current.efforts || []).length };
 }
 
 export function decodeApplicationFragment(hash) {
@@ -43,3 +45,4 @@ export function decodeApplicationFragment(hash) {
   const bytes = Uint8Array.from(atob(encoded.replace(/-/g, '+').replace(/_/g, '/')), char => char.charCodeAt(0));
   return JSON.parse(new TextDecoder().decode(bytes));
 }
+
